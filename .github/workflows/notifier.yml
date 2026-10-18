@@ -1,0 +1,52 @@
+name: Twitch Discord Notifier
+
+on:
+  schedule:
+    - cron: "3,8,13,18,23,28,33,38,43,48,53,58 * * * *"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: twitch-discord-notifier
+  cancel-in-progress: false
+
+jobs:
+  check-stream:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Получение файлов репозитория
+        uses: actions/checkout@v7
+
+      - name: Установка Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Проверка Twitch
+        env:
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TWITCH_LOGIN: ${{ vars.TWITCH_LOGIN }}
+          DISCORD_MENTION: ${{ vars.DISCORD_MENTION }}
+        run: python bot.py
+
+      - name: Сохранение состояния трансляции
+        shell: bash
+        run: |
+          git config user.name "Twitch Notifier"
+          git config user.email "actions@github.com"
+
+          git add state.json
+
+          if git diff --cached --quiet; then
+            echo "Состояние не изменилось."
+          else
+            git commit -m "Update Twitch stream state [skip ci]"
+            git push
+          fi
